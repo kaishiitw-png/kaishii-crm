@@ -23,8 +23,10 @@ const ACTIVITY_TYPES = [{value:"quote",label:"📄 報價單",color:"#2563eb"},{
 
 const DEFAULT_SETTINGS = { logoUrl: "", companyName: "開 璽", address: "新北市板橋區陽明街104號", phone: "+886-2-22586156", website: "www.kaishii.com.tw", email: "kaishii.tw@gmail.com" };
 
-async function lookupTaxId(tid){try{const r=await fetch(`/api/gcis?type=taxid&q=${tid}`);if(!r.ok)return null;const d=await r.json();if(d?.length)return{company:d[0].Company_Name,address:d[0].Company_Location||""}}catch{}return null}
-async function lookupName(name){try{const r=await fetch(`/api/gcis?type=name&q=${encodeURIComponent(name)}`);if(!r.ok)return[];const d=await r.json();return(d||[]).map(x=>({company:x.Company_Name,taxId:x.Business_Accounting_NO,address:x.Company_Location||""}))}catch{return[]}}
+const GCIS_BASE = "https://data.gcis.nat.gov.tw/od/data/api/236BF29E-BD41-43FC-BFA4-5E7E1DC292C0";
+const PROXY = "https://corsproxy.io/?url=";
+async function lookupTaxId(tid){try{const url=`${GCIS_BASE}?$format=json&$filter=Business_Accounting_NO eq ${tid}&$skip=0&$top=1`;const r=await fetch(PROXY+encodeURIComponent(url));if(!r.ok)return null;const d=await r.json();if(d?.length)return{company:d[0].Company_Name,address:d[0].Company_Location||""}}catch{}return null}
+async function lookupName(name){try{const url=`${GCIS_BASE}?$format=json&$filter=Company_Name like ${name}&$skip=0&$top=5`;const r=await fetch(PROXY+encodeURIComponent(url));if(!r.ok)return[];const d=await r.json();return(d||[]).map(x=>({company:x.Company_Name,taxId:x.Business_Accounting_NO,address:x.Company_Location||""}))}catch{return[]}}
 async function getAIPricing(items,tq){try{const s=items.map(i=>`${i.name}:成本$${i.cost},報價$${i.price},數量${i.qty||1}`).join("\n");const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:`你是開璽糕餅的定價顧問。簡短建議（繁體中文、3-5點）：\n${s}\n總量：${tq}盒\n折扣：10-29盒96折,30-99盒92折,100-199盒88折,200+盒85折\n分析利潤率、折扣策略、搭配建議。直接給建議。`}]})});const data=await r.json();return data.content?.map(c=>c.text).join("")||"無法取得"}catch{return"AI 暫時無法使用"}}
 
 function load(k,fb){try{const r=localStorage.getItem(k);return r?JSON.parse(r):fb}catch{return fb}}
